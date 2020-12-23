@@ -3,6 +3,7 @@ module github.com/kiandigital/cert-manager-webhook-arvan
 go 1.15
 
 require (
+	github.com/etcd-io/etcd v3.3.25+incompatible // indirect
 	github.com/go-resty/resty/v2 v2.3.0
 	github.com/googleapis/gnostic v0.4.2 // indirect
 	github.com/jetstack/cert-manager v1.0.4
