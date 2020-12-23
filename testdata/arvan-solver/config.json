@@ -1,0 +1,6 @@
+{
+  "authAPIKey": "YOUR API KEY",
+  "authApiSecretRef": {"name":"a", "key":  "b"},
+  "baseUrl": "https://napi.arvancloud.com",
+  "ttl": 120
+}
