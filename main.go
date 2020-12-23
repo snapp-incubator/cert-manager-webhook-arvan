@@ -1,16 +1,17 @@
 package main
+
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jetstack/cert-manager/pkg/issuer/acme/dns/util"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"strings"
 
 	cmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -37,16 +38,16 @@ import (
 //	"updated_at": "2019-08-24T14:15:22Z"
 //}
 type DNSRecord struct {
-	ID		 string				`json:"id,omitempty"`
-	Type     string 			`json:"type"`
-	Name     string 			`json:"name"`
-	Value    map[string]string  `json:"value"`
-	Cloud	 bool   			`json:"cloud"`
-	TTL      int    			`json:"ttl,omitempty"`
+	ID    string            `json:"id,omitempty"`
+	Type  string            `json:"type"`
+	Name  string            `json:"name"`
+	Value map[string]string `json:"value"`
+	Cloud bool              `json:"cloud"`
+	TTL   int               `json:"ttl,omitempty"`
 }
 
 type DNSRecords struct {
-	Data	[]DNSRecord	`json:"data"`
+	Data []DNSRecord `json:"data"`
 }
 
 var GroupName = os.Getenv("GROUP_NAME")
@@ -77,7 +78,7 @@ type arvanDNSProviderSolver struct {
 	// 3. uncomment the relevant code in the Initialize method below
 	// 4. ensure your webhook's service account has the required RBAC role
 	//    assigned to it for interacting with the Kubernetes APIs you need.
-	client kubernetes.Clientset
+	client *kubernetes.Clientset
 }
 
 // arvanDNSProviderConfig is a structure that is used to decode into when
@@ -100,11 +101,10 @@ type arvanDNSProviderConfig struct {
 	// These fields will be set by users in the
 	// `issuer.spec.acme.dns01.providers.webhook.config` field.
 
-
-	AuthAPIKey          string                          `json:"authApiKey"`
-	AuthAPISecretRef    cmeta.SecretKeySelector         `json:"authApiSecretRef"`
-	BaseURL          	string                          `json:"baseUrl"`
-	TTL                 int                             `json:"ttl"`
+	AuthAPIKey       string                  `json:"authApiKey"`
+	AuthAPISecretRef cmeta.SecretKeySelector `json:"authApiSecretRef"`
+	BaseURL          string                  `json:"baseUrl"`
+	TTL              int                     `json:"ttl"`
 }
 
 // Name is used as the name for this DNS solver when referencing it on the ACME
@@ -137,33 +137,33 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 	}
 
 	recordName := c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone)
+	domain := ch.ResolvedZone[:len(ch.ResolvedZone)-1]
 	//{"type":"TXT","ttl":120,"name":"asds","cloud":false,"value":{"text":"asd"}}
 	vals := make(map[string]string)
 	vals["text"] = ch.Key
 	record := DNSRecord{
 		Type:  "TXT",
 		Name:  recordName,
-		Value:  vals,
+		Value: vals,
 		Cloud: false,
 		TTL:   cfg.TTL,
 	}
 
 	client := resty.New()
-
 	// See we are not setting content-type header, since go-resty automatically detects Content-Type for you
 	resp, err := client.R().
 		SetBody(record).
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiSecret).
-		SetAuthScheme("ApiKey").
+		SetAuthScheme("Apikey").
 		Post(
 			c.urlFactory(
 				&cfg,
 				"/cdn/4.0/domains/{domain}/dns-records",
-				"{domain}", ch.ResolvedFQDN,
-				))
+				"{domain}", domain,
+			))
 
-	if err != nil {
+	if err == nil {
 		if resp.StatusCode() != 201 {
 			err = fmt.Errorf("Error in creating dns record: %s", string(resp.Body()))
 		}
@@ -193,21 +193,25 @@ func (c *arvanDNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
 	}
 	// See we are not setting content-type header, since go-resty automatically detects Content-Type for you
 
+	domain := ch.ResolvedZone[:len(ch.ResolvedZone)-1]
+
 	client := resty.New()
 	resp, err := client.R().
 		SetAuthToken(apiSecret).
-		SetAuthScheme("ApiKey").
+		SetAuthScheme("Apikey").
 		SetHeader("Accept", "application/json").
 		Delete(
 			c.urlFactory(
 				&cfg,
 				"/cdn/4.0/domains/{domain}/dns-records/{id}",
-				"{domain}", ch.ResolvedFQDN,
+				"{domain}", domain,
 				"{id}", id,
 			))
 
 	if err != nil {
-		if resp.StatusCode() != 200 {
+		if resp == nil {
+			err = fmt.Errorf("Api call has no resutl")
+		} else if resp.StatusCode() != 200 {
 			err = fmt.Errorf("Error in creating dns record: %s", string(resp.Body()))
 		}
 	}
@@ -227,12 +231,12 @@ func (c *arvanDNSProviderSolver) Initialize(kubeClientConfig *rest.Config, stopC
 	///// UNCOMMENT THE BELOW CODE TO MAKE A KUBERNETES CLIENTSET AVAILABLE TO
 	///// YOUR CUSTOM DNS PROVIDER
 
-	//cl, err := kubernetes.NewForConfig(kubeClientConfig)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//c.client = cl
+	cl, err := kubernetes.NewForConfig(kubeClientConfig)
+	if err != nil {
+		return err
+	}
+
+	c.client = cl
 	///// END OF CODE TO MAKE KUBERNETES CLIENTSET AVAILABLE
 	return nil
 }
@@ -255,8 +259,8 @@ func loadConfig(cfgJSON *extapi.JSON) (arvanDNSProviderConfig, error) {
 func (c *arvanDNSProviderSolver) validateAndGetSecret(cfg *arvanDNSProviderConfig, namespace string) (string, error) {
 	fmt.Printf("validateAndGetSecret...")
 	// Check that the host is defined
-	if cfg.AuthAPIKey == "" {
-		return "", errors.New("No Arvan API Key provided")
+	if cfg.AuthAPIKey != "" {
+		return cfg.AuthAPIKey, nil
 	}
 
 	// Try to load the API key
@@ -279,7 +283,7 @@ func (c *arvanDNSProviderSolver) validateAndGetSecret(cfg *arvanDNSProviderConfi
 	return apiKey, nil
 }
 
-func (c *arvanDNSProviderSolver) urlFactory(cfg *arvanDNSProviderConfig, uri string, args ...string)(string){
+func (c *arvanDNSProviderSolver) urlFactory(cfg *arvanDNSProviderConfig, uri string, args ...string) string {
 	r := strings.NewReplacer(args...)
 	urlFormat := "https://napi.arvancloud.com" + uri
 	if cfg.BaseURL != "" {
@@ -294,7 +298,7 @@ func (c *arvanDNSProviderSolver) extractRecordName(fqdn, domain string) string {
 	return util.UnFqdn(fqdn)
 }
 
-func (c *arvanDNSProviderSolver) getRecordID (ch *v1alpha1.ChallengeRequest)(string, error){
+func (c *arvanDNSProviderSolver) getRecordID(ch *v1alpha1.ChallengeRequest) (string, error) {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
 		return "", err
@@ -303,33 +307,35 @@ func (c *arvanDNSProviderSolver) getRecordID (ch *v1alpha1.ChallengeRequest)(str
 	if err != nil {
 		return "", fmt.Errorf("Failed to validate config: %v", err)
 	}
-	recordName := c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone)
+	recordName := strings.Replace(c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone), "-", "_", -1)
+
+	domain := ch.ResolvedZone[:len(ch.ResolvedZone)-1]
 
 	client := resty.New()
-
 	resp, err := client.R().
 		SetAuthToken(apiSecret).
-		SetAuthScheme("ApiKey").
+		SetAuthScheme("Apikey").
 		SetHeader("Accept", "application/json").
-		SetQueryString(fmt.Sprintf("search=%s&page=1&per_page=25",  recordName)).
+		SetQueryString(fmt.Sprintf("search=%s&page=1&per_page=25", recordName)).
 		Get(
 			c.urlFactory(
 				&cfg,
 				"/cdn/4.0/domains/{domain}/dns-records",
-				"{domain}", ch.ResolvedFQDN,
+				"{domain}", domain,
 			))
 
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
-
 	recs := DNSRecords{}
-	json.Unmarshal(resp.Body(), &recs)
-
+	err = json.Unmarshal(resp.Body(), &recs)
+	if err != nil {
+		return "", err
+	}
 	if len(recs.Data) == 1 {
 		return recs.Data[0].ID, nil
-	}else {
+	} else {
 		return "", fmt.Errorf("Domain not Found")
 	}
 }

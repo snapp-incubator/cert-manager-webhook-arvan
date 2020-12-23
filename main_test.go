@@ -19,7 +19,8 @@ func TestRunsSuite(t *testing.T) {
 	fixture := dns.NewFixture(&arvanDNSProviderSolver{},
 		dns.SetResolvedZone(zone),
 		dns.SetAllowAmbientCredentials(false),
-		dns.SetManifestPath("testdata/my-custom-solver"),
+		dns.SetManifestPath("testdata/arvan-solver"),
+		dns.SetBinariesPath("/usr/local/kubebuilder/bin"),
 	)
 
 	fixture.RunConformance(t)
