@@ -3,17 +3,18 @@ kind: APIService
 metadata:
   name: v1alpha1.{{ .Values.groupName }}
   labels:
-    app: {{ include "arvan-webhook.name" . }}
-    chart: {{ include "arvan-webhook.chart" . }}
+    app: {{ include "cert-manager-webhook-arvan.name" . }}
+    chart: {{ include "cert-manager-webhook-arvan.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
   annotations:
-    certmanager.k8s.io/inject-ca-from: "{{ .Release.Namespace }}/{{ include "arvan-webhook.servingCertificate" . }}"
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/{{ include "cert-manager-webhook-arvan.servingCertificate" . }}"
+    certmanager.k8s.io/inject-apiserver-ca: "true"nbs
 spec:
   group: {{ .Values.groupName }}
   groupPriorityMinimum: 1000
   versionPriority: 15
   service:
-    name: {{ include "arvan-webhook.fullname" . }}
+    name: {{ include "cert-manager-webhook-arvan.fullname" . }}
     namespace: {{ .Release.Namespace }}
   version: v1alpha1

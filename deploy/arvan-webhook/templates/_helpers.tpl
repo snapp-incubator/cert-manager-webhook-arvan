@@ -2,7 +2,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "arvan-webhook.name" -}}
+{{- define "cert-manager-webhook-arvan.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
@@ -11,7 +11,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "arvan-webhook.fullname" -}}
+{{- define "cert-manager-webhook-arvan.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -27,22 +27,22 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "arvan-webhook.chart" -}}
+{{- define "cert-manager-webhook-arvan.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "arvan-webhook.selfSignedIssuer" -}}
-{{ printf "%s-selfsign" (include "arvan-webhook.fullname" .) }}
+{{- define "cert-manager-webhook-arvan.selfSignedIssuer" -}}
+{{ printf "%s-selfsign" (include "cert-manager-webhook-arvan.fullname" .) }}
 {{- end -}}
 
-{{- define "arvan-webhook.rootCAIssuer" -}}
-{{ printf "%s-ca" (include "arvan-webhook.fullname" .) }}
+{{- define "cert-manager-webhook-arvan.rootCAIssuer" -}}
+{{ printf "%s-ca" (include "cert-manager-webhook-arvan.fullname" .) }}
 {{- end -}}
 
-{{- define "arvan-webhook.rootCACertificate" -}}
-{{ printf "%s-ca" (include "arvan-webhook.fullname" .) }}
+{{- define "cert-manager-webhook-arvan.rootCACertificate" -}}
+{{ printf "%s-ca" (include "cert-manager-webhook-arvan.fullname" .) }}
 {{- end -}}
 
-{{- define "arvan-webhook.servingCertificate" -}}
-{{ printf "%s-webhook-tls" (include "arvan-webhook.fullname" .) }}
+{{- define "cert-manager-webhook-arvan.servingCertificate" -}}
+{{ printf "%s-webhook-tls" (include "cert-manager-webhook-arvan.fullname" .) }}
 {{- end -}}

@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "arvan-webhook.fullname" . }}
+  name: {{ include "cert-manager-webhook-arvan.fullname" . }}
   labels:
-    app: {{ include "arvan-webhook.name" . }}
-    chart: {{ include "arvan-webhook.chart" . }}
+    app: {{ include "cert-manager-webhook-arvan.name" . }}
+    chart: {{ include "cert-manager-webhook-arvan.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "arvan-webhook.name" . }}
+      app: {{ include "cert-manager-webhook-arvan.name" . }}
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ include "arvan-webhook.name" . }}
+        app: {{ include "cert-manager-webhook-arvan.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ include "arvan-webhook.fullname" . }}
+      serviceAccountName: {{ include "cert-manager-webhook-arvan.fullname" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -27,6 +27,8 @@ spec:
           args:
             - --tls-cert-file=/tls/tls.crt
             - --tls-private-key-file=/tls/tls.key
+            - -v={{ .Values.deployment.loglevel }}
+            - --secure-port=443
           env:
             - name: GROUP_NAME
               value: {{ .Values.groupName | quote }}
@@ -53,7 +55,7 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: {{ include "arvan-webhook.servingCertificate" . }}
+            secretName: {{ include "cert-manager-webhook-arvan.servingCertificate" . }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
