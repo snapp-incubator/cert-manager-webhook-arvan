@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/jetstack/cert-manager/pkg/issuer/acme/dns/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 	"os"
 	"strings"
 
@@ -125,6 +126,7 @@ func (c *arvanDNSProviderSolver) Name() string {
 func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
+		klog.Error(err)
 		return err
 	}
 
@@ -133,6 +135,7 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 
 	apiSecret, err := c.validateAndGetSecret(&cfg, ch.ResourceNamespace)
 	if err != nil {
+		klog.Errorf("Failed to validate config: %v", err)
 		return fmt.Errorf("Failed to validate config: %v", err)
 	}
 
@@ -163,9 +166,12 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 				"{domain}", domain,
 			))
 
+	klog.Info(resp.Request.URL, resp.Request.Header, resp.Request.Body, resp.StatusCode(), string(resp.Body()))
+
 	if err == nil {
 		if resp.StatusCode() != 201 {
 			err = fmt.Errorf("Error in creating dns record: %s", string(resp.Body()))
+			klog.Error(err)
 		}
 	}
 	return err
@@ -178,17 +184,19 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 // This is in order to facilitate multiple DNS validations for the same domain
 // concurrently.
 func (c *arvanDNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
-
 	id, err := c.getRecordID(ch)
 	if err != nil {
+		klog.Error(err)
 		return err
 	}
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
+		klog.Error(err)
 		return err
 	}
 	apiSecret, err := c.validateAndGetSecret(&cfg, ch.ResourceNamespace)
 	if err != nil {
+		klog.Errorf("Failed to validate config: %v", err)
 		return fmt.Errorf("Failed to validate config: %v", err)
 	}
 	// See we are not setting content-type header, since go-resty automatically detects Content-Type for you
@@ -208,11 +216,15 @@ func (c *arvanDNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
 				"{id}", id,
 			))
 
+	klog.Info(resp.Request.URL, resp.Request.Header, resp.Request.Body, resp.StatusCode(), string(resp.Body()))
+
 	if err != nil {
 		if resp == nil {
 			err = fmt.Errorf("Api call has no resutl")
+			klog.Error(err)
 		} else if resp.StatusCode() != 200 {
 			err = fmt.Errorf("Error in creating dns record: %s", string(resp.Body()))
+			klog.Error(err)
 		}
 	}
 	return err
@@ -270,6 +282,7 @@ func (c *arvanDNSProviderSolver) validateAndGetSecret(cfg *arvanDNSProviderConfi
 
 	sec, err := c.client.CoreV1().Secrets(namespace).Get(context.TODO(), cfg.AuthAPISecretRef.LocalObjectReference.Name, metav1.GetOptions{})
 	if err != nil {
+		klog.Error(err)
 		return "", err
 	}
 
@@ -292,6 +305,7 @@ func (c *arvanDNSProviderSolver) urlFactory(cfg *arvanDNSProviderConfig, uri str
 	return r.Replace(urlFormat)
 }
 func (c *arvanDNSProviderSolver) extractRecordName(fqdn, domain string) string {
+	klog.Infof("Request : %s => %s", fqdn, domain)
 	if idx := strings.Index(fqdn, "."+domain); idx != -1 {
 		return fqdn[:idx]
 	}
@@ -301,10 +315,12 @@ func (c *arvanDNSProviderSolver) extractRecordName(fqdn, domain string) string {
 func (c *arvanDNSProviderSolver) getRecordID(ch *v1alpha1.ChallengeRequest) (string, error) {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
+		klog.Error(err)
 		return "", err
 	}
 	apiSecret, err := c.validateAndGetSecret(&cfg, ch.ResourceNamespace)
 	if err != nil {
+		klog.Errorf("Failed to validate config: %v", err)
 		return "", fmt.Errorf("Failed to validate config: %v", err)
 	}
 	recordName := strings.Replace(c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone), "-", "_", -1)
@@ -323,19 +339,24 @@ func (c *arvanDNSProviderSolver) getRecordID(ch *v1alpha1.ChallengeRequest) (str
 				"/cdn/4.0/domains/{domain}/dns-records",
 				"{domain}", domain,
 			))
+	klog.Info(resp.Request.URL, resp.Request.Header, resp.Request.Body, resp.StatusCode(), string(resp.Body()))
 
 	if err != nil {
+		klog.Error(err)
 		return "", err
 	}
 
 	recs := DNSRecords{}
 	err = json.Unmarshal(resp.Body(), &recs)
 	if err != nil {
+		klog.Error(err)
 		return "", err
 	}
 	if len(recs.Data) == 1 {
 		return recs.Data[0].ID, nil
 	} else {
-		return "", fmt.Errorf("Domain not Found")
+		err = fmt.Errorf("Domain not Found")
+		klog.Error(err)
+		return "", err
 	}
 }
