@@ -1,4 +1,5 @@
-# ACME webhook example
+[![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/hbahadorzadeh)](https://artifacthub.io/packages/helm/hbahadorzadeh/cert-manager-webhook-arvan)
+# ACME webhook ArvanCloud
 
 The ACME issuer type supports an optional 'webhook' solver, which can be used
 to implement custom DNS01 challenge solving logic.
@@ -6,49 +7,70 @@ to implement custom DNS01 challenge solving logic.
 This is useful if you need to use cert-manager with a DNS provider that is not
 officially supported in cert-manager core.
 
-## Why not in core?
+This plugin integrates with arvancloud api service to make DNS01 challenge possible for you.
 
-As the project & adoption has grown, there has been an influx of DNS provider
-pull requests to our core codebase. As this number has grown, the test matrix
-has become un-maintainable and so, it's not possible for us to certify that
-providers work to a sufficient level.
-
-By creating this 'interface' between cert-manager and DNS providers, we allow
-users to quickly iterate and test out new integrations, and then packaging
-those up themselves as 'extensions' to cert-manager.
-
-We can also then provide a standardised 'testing framework', or set of
-conformance tests, which allow us to validate the a DNS provider works as
-expected.
-
-## Creating your own webhook
-
-Webhook's themselves are deployed as Kubernetes API services, in order to allow
-administrators to restrict access to webhooks with Kubernetes RBAC.
-
-This is important, as otherwise it'd be possible for anyone with access to your
-webhook to complete ACME challenge validations and obtain certificates.
-
-To make the set up of these webhook's easier, we provide a template repository
-that can be used to get started quickly.
-
-### Creating your own repository
-
-### Running the test suite
-
-All DNS providers **must** run the DNS01 provider conformance testing suite,
-else they will have undetermined behaviour when used with cert-manager.
-
-**It is essential that you configure and run the test suite when creating a
-DNS01 webhook.**
-
-An example Go test file has been provided in [main_test.go]().
-
-You can run the test suite with:
-
+Use helm to install this webhook:
 ```bash
-$ TEST_ZONE_NAME=example.com go test .
+helm repo add hbx https://hbahadorzadeh.github.io/helm-chart/
+helm install -n cert-manager hbx/cert-manager-webhook-arvan
 ```
 
-The example file has a number of areas you must fill in and replace with your
-own options in order for tests to pass.
+# Usage
+
+You need to create a secret for your api key :
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arvan-credentials
+  namespace: cert-manager
+stringData:
+  apikey: "YOUR_API_KEY"
+```
+
+Sample ClusterIssuer:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: test-issuer # Name of the issuer
+  labels:
+    app.kubernetes.io/name: test-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory # URL of the server 
+    email: test@example.com #email of the user that will the notification about the cert 
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - dns01:
+        webhook:
+          groupName: hbahadorzadeh.github # name of the group you setted at the start of this course
+          solverName: arvancloud
+          config:
+            ttl: 120
+            authApiSecretRef: 
+              name: "arvan-credentials"
+              key":  "apikey"
+            baseUrl: "https://napi.arvancloud.com"
+```
+
+Sample Certificate:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: test-certificate # name of the certificate
+  labels:
+    app.kubernetes.io/name: test-certificate # name of the certificate
+spec:
+  dnsNames:
+  - test.domain # name of the domain you want to validate the certificate
+  issuerRef:
+    name: test-issuer # name of the issuer you created before
+    kind: ClusterIssuer
+  secretName: test-certificate # name of the secret that will be created that will contain the certificate
+```
