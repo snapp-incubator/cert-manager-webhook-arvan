@@ -16,22 +16,10 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build -o webhook -ldflags '-w -extldflags "-static"' .
 
-FROM build_deps AS build_dlv
-
-RUN apk add --no-cache make
-
-WORKDIR /dlv
-
-RUN git clone https://github.com/go-delve/delve.git .
-
-RUN make install
-
 FROM alpine:3.12
 
 RUN apk add --no-cache ca-certificates
 
 COPY --from=build /workspace/webhook /usr/local/bin/webhook
 
-COPY --from=build_dlv /go/bin/dlv /usr/local/bin/dlv
-
-ENTRYPOINT ["dlv","--listen=:40000","--headless=true","--api-version=2","--accept-multiclient","exec","/usr/local/bin/webhook","--"]
+ENTRYPOINT ["webhook"]
