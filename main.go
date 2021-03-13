@@ -139,8 +139,7 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 		return fmt.Errorf("Failed to validate config: %v", err)
 	}
 
-	recordName := c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone)
-	domain := ch.ResolvedZone[:len(ch.ResolvedZone)-1]
+	recordName, domain := c.extractRecordName(ch.ResolvedFQDN)
 	//{"type":"TXT","ttl":120,"name":"asds","cloud":false,"value":{"text":"asd"}}
 	vals := make(map[string]string)
 	vals["text"] = ch.Key
@@ -304,12 +303,15 @@ func (c *arvanDNSProviderSolver) urlFactory(cfg *arvanDNSProviderConfig, uri str
 	}
 	return r.Replace(urlFormat)
 }
-func (c *arvanDNSProviderSolver) extractRecordName(fqdn, domain string) string {
+func (c *arvanDNSProviderSolver) extractRecordName(fqdn string) (record, domain string) {
+	fqdn = util.UnFqdn(fqdn)
+	parts := strings.Split(fqdn ,".")
+	domain = strings.Join(parts[len(parts)-2:], ".")
 	klog.Infof("Request : %s => %s", fqdn, domain)
 	if idx := strings.Index(fqdn, "."+domain); idx != -1 {
-		return fqdn[:idx]
+		return fqdn[:idx], domain
 	}
-	return util.UnFqdn(fqdn)
+	return fqdn, domain
 }
 
 func (c *arvanDNSProviderSolver) getRecordID(ch *v1alpha1.ChallengeRequest) (string, error) {
@@ -323,9 +325,8 @@ func (c *arvanDNSProviderSolver) getRecordID(ch *v1alpha1.ChallengeRequest) (str
 		klog.Errorf("Failed to validate config: %v", err)
 		return "", fmt.Errorf("Failed to validate config: %v", err)
 	}
-	recordName := strings.Replace(c.extractRecordName(ch.ResolvedFQDN, ch.ResolvedZone), "-", "_", -1)
-
-	domain := ch.ResolvedZone[:len(ch.ResolvedZone)-1]
+	recordName, domain := c.extractRecordName(ch.ResolvedFQDN)
+	recordName = strings.Replace(recordName, "-", "_", -1)
 
 	client := resty.New()
 	resp, err := client.R().
