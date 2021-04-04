@@ -140,6 +140,7 @@ func (c *arvanDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 	}
 
 	recordName, domain := c.extractRecordName(ch.ResolvedFQDN)
+	c.CleanUp(ch)
 	//{"type":"TXT","ttl":120,"name":"asds","cloud":false,"value":{"text":"asd"}}
 	vals := make(map[string]string)
 	vals["text"] = ch.Key
@@ -305,7 +306,7 @@ func (c *arvanDNSProviderSolver) urlFactory(cfg *arvanDNSProviderConfig, uri str
 }
 func (c *arvanDNSProviderSolver) extractRecordName(fqdn string) (record, domain string) {
 	fqdn = util.UnFqdn(fqdn)
-	parts := strings.Split(fqdn ,".")
+	parts := strings.Split(fqdn, ".")
 	domain = strings.Join(parts[len(parts)-2:], ".")
 	klog.Infof("Request : %s => %s", fqdn, domain)
 	if idx := strings.Index(fqdn, "."+domain); idx != -1 {

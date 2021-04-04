@@ -1,5 +1,5 @@
 IMAGE_NAME := "hbahadorzadeh/cert-manager-webhook-arvan"
-IMAGE_TAG := "0.2"
+IMAGE_TAG := "0.3"
 
 OUT := $(shell pwd)/_out
 
