@@ -29,7 +29,7 @@ metadata:
     heritage: {{ .Release.Service }}
 spec:
   secretName: {{ include "cert-manager-webhook-arvan.rootCACertificate" . }}
-  duration: 43800h # 5y
+  duration: 43800h0m0s # 5y
   issuerRef:
     name: {{ include "cert-manager-webhook-arvan.selfSignedIssuer" . }}
   commonName: "ca.cert-manager-webhook-arvan.cert-manager"

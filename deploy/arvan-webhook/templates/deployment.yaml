@@ -50,6 +50,10 @@ spec:
             - name: certs
               mountPath: /tls
               readOnly: true
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
       volumes:
@@ -68,3 +72,7 @@ spec:
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

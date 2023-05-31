@@ -43,3 +43,23 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+## containerSecurityContext provides security settings for the container.
+containerSecurityContext: {}
+  # runAsNonRoot: true
+  # readOnlyRootFilesystem: false
+  # allowPrivilegeEscalation: false
+  # seccompProfile:
+  #   type: RuntimeDefault
+  # capabilities:
+  #   drop:
+  #     - ALL
+
+
+## podSecurityContext provides security settings for the Pod.
+podSecurityContext: {}
+  # runAsNonRoot: true
+  # runAsUser: 2
+  # runAsGroup: 2
+  # fsGroup: 2
+  # fsGroupChangePolicy: "OnRootMismatch"
